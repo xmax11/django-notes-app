@@ -1,53 +1,51 @@
-version: "3.8"
+version: "3.9"
 
 services:
-  nginx:
-    build: ./nginx
-    image: nginx
-    container_name: nginx_cont
-    ports:
-      - "80:80"
-    restart: always
-    depends_on:
-      - django_app
-    networks:
-      - notes-app-nw
-
   django_app:
-    build:
-      context: .
-    image: django_app
-    container_name: django_cont
+    build: .
+    container_name: django_app
+    command: >
+      sh -c "until mysqladmin ping -h db -uroot -proot --silent; do
+               echo 'Waiting for MySQL...'; sleep 2;
+             done &&
+             python manage.py migrate --noinput &&
+             gunicorn notesapp.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
     ports:
       - "8000:8000"
-    command: >
-      sh -c "python manage.py migrate --noinput &&
-             gunicorn notesapp.wsgi:application --bind 0.0.0.0:8000"
     env_file:
-      - ".env"
+      - .env
     depends_on:
-      db:
-        condition: service_healthy
-    restart: always
-    networks:
-      - notes-app-nw
+      - db
 
   db:
     image: mysql:8
-    container_name: db_cont
+    container_name: mysql_db
     environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=test_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: test_db
     volumes:
-      - ./data/mysql/db:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 60s
-    networks:
-      - notes-app-nw
 
-networks:
-  notes-app-nw:
+  nginx:
+    image: nginx:latest
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d
+      - static_volume:/app/staticfiles
+    depends_on:
+      - django_app
+
+volumes:
+  mysql_data:
+  static_volume:
