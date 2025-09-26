@@ -8,7 +8,7 @@ COPY requirements.txt /app/backend
 # Install system dependencies including MySQL client and netcat
 RUN apt-get update \
     && apt-get upgrade -y \
-    && apt-get install -y gcc default-libmysqlclient-dev pkg-config netcat default-mysql-client \
+    && apt-get install -y gcc default-libmysqlclient-dev pkg-config netcat-openbsd default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
